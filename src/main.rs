@@ -87,7 +87,11 @@ fn build(src: &Path, target: &Path) -> Result<(), Error> {
         .flat_map(|file| -> Result<_, ()> {
             let path = file.path();
             Ok((
-                path.to_string_lossy().to_string().into_boxed_str(),
+                path.strip_prefix(src)
+                    .map_err(|e| warn!("Couldn't get relative path for `{:?}`: {}", file, e))?
+                    .to_string_lossy()
+                    .to_string()
+                    .into_boxed_str(),
                 get_compressed_content(path)
                     .map_err(|e| warn!("{}", e))?
                     .into_boxed_slice(),
@@ -133,14 +137,10 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     use std::fs::read;
 
     ensure!(path.is_file(), "File `{}` doesn't exist", path.display());
-    let data =
-        read(path).with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?;
-    // That file we just read shall live on util the end of time (or the end of this program, at least)
-    let data: &'static [u8] = unsafe {
-        let x = std::mem::transmute(data.as_slice());
-        std::mem::forget(data);
-        x
-    };
+    let data = read(path)
+        .with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?
+        .into_boxed_slice();
+    let data = Box::leak(data);
 
     #[derive(Deserialize)]
     struct Site<'a> {
@@ -149,7 +149,7 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     }
     let site: Site = deserialize(data)
         .with_context(|e| format!("Couldn't parse file {}: {}", path.display(), e))?;
-    let site = Arc::new((data, site));
+    let site = Arc::new(site);
 
     let listener = port.bind()?;
 
@@ -160,7 +160,6 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     let service = move || {
         let site = site.clone();
         service_fn(move |req| {
-            let site = &site.1;
             let path = &req.uri().path()[1..];
             let page = site.pages.get(path).or_else(|| {
                 let key = format!("{}/index.html", path);
