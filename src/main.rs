@@ -10,17 +10,18 @@ extern crate serde;
 extern crate tokio;
 extern crate walkdir;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::result::Result;
 
-use bincode::{deserialize, serialize_into};
+use bincode::{serialize_into};
 use clap_port_flag::Port;
 use exitfailure::ExitFailure;
 use quicli::prelude::*;
-use std::sync::Arc;
 use walkdir::WalkDir;
+
+mod site;
+mod server;
 
 /// Serve static files from a neat small binary
 #[derive(StructOpt)]
@@ -70,8 +71,7 @@ fn main() -> Result<(), ExitFailure> {
 
 fn build(src: &Path, target: &Path) -> Result<(), Error> {
     use std::io::BufWriter;
-
-    type PageMap = HashMap<Box<str>, Box<[u8]>>;
+    use site::write::{Site, PageMap};
 
     ensure!(src.is_dir(), "Directory `{}` doesn't exist", src.display());
 
@@ -105,10 +105,6 @@ fn build(src: &Path, target: &Path) -> Result<(), Error> {
         src.display()
     );
 
-    #[derive(Serialize)]
-    struct Site {
-        pages: PageMap,
-    }
     let site = Site { pages };
     serialize_into(&mut file, &site)?;
 
@@ -133,63 +129,12 @@ fn get_compressed_content(path: &Path) -> Result<Vec<u8>, Error> {
 }
 
 fn serve(path: &Path, port: &Port) -> Result<(), Error> {
-    use futures::prelude::*;
-    use hyper::{service::service_fn, Body, Response, Server, StatusCode};
-    use std::fs::read;
+    use site::read::Site;
 
     ensure!(path.is_file(), "File `{}` doesn't exist", path.display());
-    let data = read(path)
-        .with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?
-        .into_boxed_slice();
-    let data = Box::leak(data);
+    let site = Site::from_file(path)?;
 
-    #[derive(Deserialize)]
-    struct Site<'a> {
-        #[serde(borrow)]
-        pages: HashMap<&'a str, &'a [u8]>,
-    }
-    let site: Site = deserialize(data)
-        .with_context(|e| format!("Couldn't parse file {}: {}", path.display(), e))?;
-    let site = Arc::new(site);
-
-    let listener = port.bind()?;
-
-    let handle = tokio::reactor::Handle::current();
-    let listener = tokio::net::TcpListener::from_std(listener, &handle)?;
-    let addr = listener.local_addr()?;
-
-    let service = move || {
-        let site = site.clone();
-        service_fn(move |req| {
-            let path = &req.uri().path()[1..];
-            let page = site.pages.get(path).or_else(|| {
-                let key = format!("{}/index.html", path);
-                site.pages.get(key.as_str())
-            });
-            if let Some(&page) = page {
-                Response::builder()
-                    .status(StatusCode::OK)
-                    .header(hyper::header::CONTENT_ENCODING, "gzip")
-                    .header(hyper::header::CONTENT_DISPOSITION, "inline")
-                    .header(
-                        hyper::header::CONTENT_TYPE,
-                        mime_guess::guess_mime_type_opt(path)
-                            .map(|m| m.to_string())
-                            .unwrap_or_else(|| "text/html".to_string()),
-                    ).body(Body::from(page))
-            } else {
-                Response::builder()
-                    .status(StatusCode::NOT_FOUND)
-                    .body(Body::from("Not found"))
-            }
-        })
-    };
-    let server = Server::builder(listener.incoming())
-        .serve(service)
-        .map_err(|e| eprintln!("server error: {}", e));
-
-    println!("Server listening on {}", addr);
-    tokio::run(server);
+    server::serve(site, port)?;
 
     Ok(())
 }
