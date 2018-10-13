@@ -2,7 +2,7 @@ extern crate quicli;
 extern crate clap_port_flag;
 extern crate deflate;
 extern crate exitfailure;
-extern crate rmp_serde as rmps;
+extern crate bincode;
 extern crate serde;
 extern crate walkdir;
 extern crate futures;
@@ -19,6 +19,7 @@ use exitfailure::ExitFailure;
 use quicli::prelude::*;
 use walkdir::WalkDir;
 use std::sync::Arc;
+use bincode::{serialize_into, deserialize};
 
 /// Server static files from a neat small binary
 #[derive(StructOpt)]
@@ -67,9 +68,9 @@ fn main() -> Result<(), ExitFailure> {
 }
 
 fn build(src: &Path, target: &Path) -> Result<(), Error> {
-    use rmps::Serializer;
-    use serde::Serialize;
     use std::io::BufWriter;
+
+    type PageMap = HashMap<Box<str>, Box<[u8]>>;
 
     ensure!(src.is_dir(), "Directory `{}` doesn't exist", src.display());
 
@@ -77,16 +78,18 @@ fn build(src: &Path, target: &Path) -> Result<(), Error> {
         File::create(target)
             .with_context(|e| format!("couldn't create file `{}`: {}", target.display(), e))?,
     );
-    let mut output = Serializer::new(&mut file);
 
-    let pages: HashMap<String, Vec<u8>> = WalkDir::new(src)
+    let pages: PageMap = WalkDir::new(src)
         .into_iter()
         .par_bridge()
         .flat_map(|entry| entry.map_err(|e| warn!("Couldn't read dir entry {}", e)))
         .filter(|f| f.path().is_file())
-        .flat_map(|file| -> Result<(String, Vec<u8>), ()> {
+        .flat_map(|file| -> Result<_, ()> {
             let path = file.path();
-            Ok((path.to_string_lossy().into(), get_compressed_content(path).map_err(|e| warn!("{}", e))?))
+            Ok((
+                path.to_string_lossy().to_string().into_boxed_str(),
+                get_compressed_content(path).map_err(|e| warn!("{}", e))?.into_boxed_slice()
+            ))
         })
         .collect();
 
@@ -98,10 +101,10 @@ fn build(src: &Path, target: &Path) -> Result<(), Error> {
 
     #[derive(Serialize)]
     struct Site {
-        pages: HashMap<String, Vec<u8>>,
+        pages: PageMap,
     }
     let site = Site { pages };
-    site.serialize(&mut output)?;
+    serialize_into(&mut file, &site)?;
 
     Ok(())
 }
@@ -126,7 +129,6 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     use futures::prelude::*;
     use hyper::{service::service_fn, Body, Response, Server, StatusCode};
     use std::fs::read;
-    use rmps::from_slice;
 
     ensure!(path.is_file(), "File `{}` doesn't exist", path.display());
     let data = read(path).with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?;
@@ -138,14 +140,11 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     };
 
     #[derive(Deserialize)]
-//    struct Site<'a> {
-//        #[serde(borrow)]
-//        pages: HashMap<&'a str, &'a [u8]>,
-//    }
-    struct Site {
-        pages: HashMap<String, Vec<u8>>,
+    struct Site<'a> {
+        #[serde(borrow)]
+        pages: HashMap<&'a str, &'a [u8]>,
     }
-    let site: Site = from_slice(data).with_context(|e| format!("Couldn't parse file {}: {}", path.display(), e))?;
+    let site: Site = deserialize(data).with_context(|e| format!("Couldn't parse file {}: {}", path.display(), e))?;
     let site = Arc::new((data, site));
 
     let listener = port.bind()?;
@@ -157,15 +156,14 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     let service = move || {
         let site = site.clone();
         service_fn(move |req| {
+            let site = &site.1;
             let path = &req.uri().path()[1..];
-            let pages = site.1.pages.clone();
-            let page = pages.get(path)
+            let page = site.pages.get(path)
                 .or_else(|| {
                     let key = format!("{}/index.html", path);
-                    pages.get(key.as_str())
-                })
-                .cloned();
-            if let Some(page) = page {
+                    site.pages.get(key.as_str())
+                });
+            if let Some(&page) = page {
                 Response::builder()
                     .status(StatusCode::OK)
                     .header("Transfer-Encoding", "gzip")
