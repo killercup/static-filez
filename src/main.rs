@@ -4,6 +4,7 @@ extern crate deflate;
 extern crate exitfailure;
 extern crate futures;
 extern crate hyper;
+extern crate mime_guess;
 extern crate quicli;
 extern crate serde;
 extern crate tokio;
@@ -168,8 +169,14 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
             if let Some(&page) = page {
                 Response::builder()
                     .status(StatusCode::OK)
-                    .header("Transfer-Encoding", "gzip")
-                    .body(Body::from(page))
+                    .header(hyper::header::CONTENT_ENCODING, "gzip")
+                    .header(hyper::header::CONTENT_DISPOSITION, "inline")
+                    .header(
+                        hyper::header::CONTENT_TYPE,
+                        mime_guess::guess_mime_type_opt(path)
+                            .map(|m| m.to_string())
+                            .unwrap_or_else(|| "text/html".to_string()),
+                    ).body(Body::from(page))
             } else {
                 Response::builder()
                     .status(StatusCode::NOT_FOUND)
