@@ -1,27 +1,27 @@
-extern crate quicli;
+extern crate bincode;
 extern crate clap_port_flag;
 extern crate deflate;
 extern crate exitfailure;
-extern crate bincode;
-extern crate serde;
-extern crate walkdir;
 extern crate futures;
-extern crate tokio;
 extern crate hyper;
+extern crate quicli;
+extern crate serde;
+extern crate tokio;
+extern crate walkdir;
 
-use std::path::{Path, PathBuf};
-use std::result::Result;
 use std::collections::HashMap;
 use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::result::Result;
 
+use bincode::{deserialize, serialize_into};
 use clap_port_flag::Port;
 use exitfailure::ExitFailure;
 use quicli::prelude::*;
-use walkdir::WalkDir;
 use std::sync::Arc;
-use bincode::{serialize_into, deserialize};
+use walkdir::WalkDir;
 
-/// Server static files from a neat small binary
+/// Serve static files from a neat small binary
 #[derive(StructOpt)]
 struct Cli {
     #[structopt(flatten)]
@@ -88,10 +88,11 @@ fn build(src: &Path, target: &Path) -> Result<(), Error> {
             let path = file.path();
             Ok((
                 path.to_string_lossy().to_string().into_boxed_str(),
-                get_compressed_content(path).map_err(|e| warn!("{}", e))?.into_boxed_slice()
+                get_compressed_content(path)
+                    .map_err(|e| warn!("{}", e))?
+                    .into_boxed_slice(),
             ))
-        })
-        .collect();
+        }).collect();
 
     ensure!(
         !pages.is_empty(),
@@ -116,7 +117,8 @@ fn get_compressed_content(path: &Path) -> Result<Vec<u8>, Error> {
     use deflate::write::GzEncoder;
     use deflate::Compression;
 
-    let data = read(path).with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?;
+    let data =
+        read(path).with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?;
 
     let mut encoder = GzEncoder::new(Vec::new(), Compression::Best);
     encoder.write_all(&data)?;
@@ -131,7 +133,8 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     use std::fs::read;
 
     ensure!(path.is_file(), "File `{}` doesn't exist", path.display());
-    let data = read(path).with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?;
+    let data =
+        read(path).with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?;
     // That file we just read shall live on util the end of time (or the end of this program, at least)
     let data: &'static [u8] = unsafe {
         let x = std::mem::transmute(data.as_slice());
@@ -144,7 +147,8 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
         #[serde(borrow)]
         pages: HashMap<&'a str, &'a [u8]>,
     }
-    let site: Site = deserialize(data).with_context(|e| format!("Couldn't parse file {}: {}", path.display(), e))?;
+    let site: Site = deserialize(data)
+        .with_context(|e| format!("Couldn't parse file {}: {}", path.display(), e))?;
     let site = Arc::new((data, site));
 
     let listener = port.bind()?;
@@ -158,11 +162,10 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
         service_fn(move |req| {
             let site = &site.1;
             let path = &req.uri().path()[1..];
-            let page = site.pages.get(path)
-                .or_else(|| {
-                    let key = format!("{}/index.html", path);
-                    site.pages.get(key.as_str())
-                });
+            let page = site.pages.get(path).or_else(|| {
+                let key = format!("{}/index.html", path);
+                site.pages.get(key.as_str())
+            });
             if let Some(&page) = page {
                 Response::builder()
                     .status(StatusCode::OK)
