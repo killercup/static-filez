@@ -138,9 +138,12 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     };
 
     #[derive(Deserialize)]
-    struct Site<'a> {
-        #[serde(borrow)]
-        pages: HashMap<&'a str, &'a [u8]>,
+//    struct Site<'a> {
+//        #[serde(borrow)]
+//        pages: HashMap<&'a str, &'a [u8]>,
+//    }
+    struct Site {
+        pages: HashMap<String, Vec<u8>>,
     }
     let site: Site = from_slice(data).with_context(|e| format!("Couldn't parse file {}: {}", path.display(), e))?;
     let site = Arc::new((data, site));
@@ -154,14 +157,15 @@ fn serve(path: &Path, port: &Port) -> Result<(), Error> {
     let service = move || {
         let site = site.clone();
         service_fn(move |req| {
-            let site = &site.1;
             let path = &req.uri().path()[1..];
-            let page = site.pages.get(path)
+            let pages = site.1.pages.clone();
+            let page = pages.get(path)
                 .or_else(|| {
                     let key = format!("{}/index.html", path);
-                    site.pages.get(key.as_str())
-                });
-            if let Some(&page) = page {
+                    pages.get(key.as_str())
+                })
+                .cloned();
+            if let Some(page) = page {
                 Response::builder()
                     .status(StatusCode::OK)
                     .header("Transfer-Encoding", "gzip")
