@@ -17,6 +17,8 @@ clap-port-flag = "0.3.0"
 walkdir = "2.2.5"
 rmp-serde = "0.13.7"
 serde = "1.0.79"
+futures = "0.1.25"
+tokio = "0.1.11"
 
 [workspace]
 #members = [
