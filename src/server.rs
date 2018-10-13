@@ -3,9 +3,11 @@ use std::result::Result;
 use quicli::prelude::Error;
 
 use clap_port_flag::Port;
-use std::sync::Arc;
 use futures::prelude::*;
-use hyper::{service::service_fn, Body, Response, Server, StatusCode};
+use hyper::{self, service::service_fn, Body, Response, Server, StatusCode};
+use mime_guess;
+use std::sync::Arc;
+use tokio;
 
 use site::read::Site;
 

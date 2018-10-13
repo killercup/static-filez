@@ -1,8 +1,8 @@
 pub mod read {
+    use bincode::deserialize;
+    use quicli::prelude::*;
     use std::collections::HashMap;
     use std::fs::read;
-    use quicli::prelude::*;
-    use bincode::deserialize;
     use std::path::Path;
     use std::result::Result;
 
@@ -27,7 +27,6 @@ pub mod read {
 
 pub mod write {
     use std::collections::HashMap;
-    use quicli::prelude::*;
 
     pub type PageMap = HashMap<Box<str>, Box<[u8]>>;
 

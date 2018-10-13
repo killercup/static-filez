@@ -6,7 +6,8 @@ extern crate futures;
 extern crate hyper;
 extern crate mime_guess;
 extern crate quicli;
-extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate tokio;
 extern crate walkdir;
 
@@ -14,14 +15,14 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::result::Result;
 
-use bincode::{serialize_into};
+use bincode::serialize_into;
 use clap_port_flag::Port;
 use exitfailure::ExitFailure;
 use quicli::prelude::*;
 use walkdir::WalkDir;
 
-mod site;
 mod server;
+mod site;
 
 /// Serve static files from a neat small binary
 #[derive(StructOpt)]
@@ -70,8 +71,8 @@ fn main() -> Result<(), ExitFailure> {
 }
 
 fn build(src: &Path, target: &Path) -> Result<(), Error> {
+    use site::write::{PageMap, Site};
     use std::io::BufWriter;
-    use site::write::{Site, PageMap};
 
     ensure!(src.is_dir(), "Directory `{}` doesn't exist", src.display());
 
