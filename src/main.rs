@@ -11,7 +11,7 @@ use exitfailure::ExitFailure;
 use quicli::prelude::*;
 use std::path::Path;
 
-/// Serve static files from a neat small binary
+/// Package static files into a compressed archive and directly serve them over HTTP
 #[derive(StructOpt)]
 struct Cli {
     #[structopt(flatten)]
@@ -22,20 +22,20 @@ struct Cli {
 
 #[derive(StructOpt)]
 enum Command {
-    /// Build a static file that you can use to serve all your static files
+    /// Build a static archive that you can use with `serve` subcommand
     #[structopt(name = "build")]
     Build {
-        /// Source directory
+        /// Source directory to archive
         #[structopt(parse(from_os_str))]
         input_dir: PathBuf,
-        /// Target file
+        /// Target file (will write both an `.index` and an `.archive` file)
         #[structopt(parse(from_os_str))]
         output: PathBuf,
     },
-    /// Server them files over HTTP
+    /// Serve a previsouly generated archive over HTTP
     #[structopt(name = "serve")]
     Serve {
-        /// Archive to serve
+        /// Archive to serve (requires both `<name>.index` and `<name>.archive`)
         #[structopt(parse(from_os_str))]
         file: PathBuf,
         #[structopt(flatten)]
