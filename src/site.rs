@@ -45,10 +45,11 @@ impl Site {
     }
 
     pub fn get(&self, path: &str) -> Option<&[u8]> {
-        let raw_slice = self.index.get(path).or_else(|| {
-            let key = format!("{}/index.html", path);
-            self.index.get(key)
-        })?;
+        let raw_slice = self
+            .index
+            .get(path)
+            .or_else(|| self.index.get(format!("{}index.html", path)))
+            .or_else(|| self.index.get(format!("{}/index.html", path)))?;
         let (offset, len) = slice::unpack_from_u64(raw_slice);
         let content = self.archive.get(offset..offset + len)?;
 
