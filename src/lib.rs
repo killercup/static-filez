@@ -36,9 +36,6 @@ pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
     let src = src
         .canonicalize()
         .with_context(|_| format!("Cannot canonicalize path `{}`", src.display()))?;
-    let target = target
-        .canonicalize()
-        .with_context(|_| format!("Cannot canonicalize path `{}`", target.display()))?;
 
     let src = Box::new(src.to_path_buf());
     let src = &*Box::leak(src);
