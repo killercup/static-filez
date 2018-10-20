@@ -33,12 +33,19 @@ pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
         "trying to build an index and archive from `{}`",
         src.display()
     );
-    use std::io::{BufWriter, Write};
+    let src = src
+        .canonicalize()
+        .with_context(|_| format!("Cannot canonicalize path `{}`", src.display()))?;
+    let target = target
+        .canonicalize()
+        .with_context(|_| format!("Cannot canonicalize path `{}`", target.display()))?;
+
     let src = Box::new(src.to_path_buf());
     let src = &*Box::leak(src);
 
     ensure!(src.is_dir(), "Directory `{}` doesn't exist", src.display());
 
+    use std::io::{BufWriter, Write};
     let index_path = target.with_extension("index");
     let index = BufWriter::new(
         File::create(&index_path)

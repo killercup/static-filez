@@ -25,6 +25,7 @@ pub fn serve(site: Site, port: &Port) -> Result<(), Error> {
             let path = &req.uri().path()[1..];
             let page = site.get(path);
             if let Some(page) = page {
+                trace!("[200] {} {}", req.method(), req.uri());
                 Response::builder()
                     .status(StatusCode::OK)
                     .header(hyper::header::CONTENT_ENCODING, "gzip")
@@ -36,6 +37,7 @@ pub fn serve(site: Site, port: &Port) -> Result<(), Error> {
                             .unwrap_or_else(|| "text/html".to_string()),
                     ).body(Body::from(page))
             } else {
+                debug!("[404] {} {}", req.method(), req.uri());
                 Response::builder()
                     .status(StatusCode::NOT_FOUND)
                     .body(Body::from("Not found"))
@@ -46,7 +48,7 @@ pub fn serve(site: Site, port: &Port) -> Result<(), Error> {
         .serve(service)
         .map_err(|e| eprintln!("server error: {}", e));
 
-    println!("Server listening on {}", addr);
+    println!("Server listening on http://{}", addr);
     tokio::run(server);
 
     Ok(())
