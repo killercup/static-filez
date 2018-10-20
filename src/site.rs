@@ -1,37 +1,57 @@
-pub mod read {
-    use bincode::deserialize;
-    use quicli::prelude::*;
-    use std::collections::HashMap;
-    use std::fs::read;
-    use std::path::Path;
-    use std::result::Result;
+use std::fs::File;
+use std::path::Path;
+use std::result::Result;
 
-    #[derive(Deserialize)]
-    pub struct Site<'a> {
-        #[serde(borrow)]
-        pub pages: HashMap<&'a str, &'a [u8]>,
-    }
+use quicli::prelude::*;
 
-    impl Site<'static> {
-        pub fn from_file(path: &Path) -> Result<Self, Error> {
-            let data = read(path)
-                .with_context(|e| format!("Couldn't read file {}: {}", path.display(), e))?
-                .into_boxed_slice();
-            let data = Box::leak(data);
-            let site: Site = deserialize(data)
-                .with_context(|e| format!("Couldn't parse file {}: {}", path.display(), e))?;
-            Ok(site)
-        }
-    }
+use fst::Map;
+use memmap::Mmap;
+
+use slice;
+
+pub struct Site {
+    index: Map,
+    archive: Mmap,
 }
 
-pub mod write {
-    use std::collections::HashMap;
+impl Site {
+    pub fn new(path: &Path) -> Result<Site, Error> {
+        let index_path = path.with_extension("index");
+        let archive_path = path.with_extension("archive");
 
-    pub type PageMap = HashMap<Box<str>, Box<[u8]>>;
+        let index_content = ::std::fs::read(&index_path).with_context(|e| {
+            format!("Could not read index file {}: {}", index_path.display(), e)
+        })?;
+        let index = Map::from_bytes(index_content).with_context(|e| {
+            format!("Could not parse index file {}: {}", index_path.display(), e)
+        })?;
 
-    #[derive(Serialize)]
-    pub struct Site {
-        pub pages: PageMap,
+        let archive_file = File::open(&archive_path).with_context(|e| {
+            format!(
+                "Could not read archive file {}: {}",
+                archive_path.display(),
+                e
+            )
+        })?;
+        let archive = unsafe { Mmap::map(&archive_file) }.with_context(|e| {
+            format!(
+                "Could not open archive file {}: {}",
+                archive_path.display(),
+                e
+            )
+        })?;
+
+        Ok(Site { index, archive })
+    }
+
+    pub fn get(&self, path: &str) -> Option<&[u8]> {
+        let raw_slice = self.index.get(path).or_else(|| {
+            let key = format!("{}/index.html", path);
+            self.index.get(key)
+        })?;
+        let (offset, len) = slice::unpack_from_u64(raw_slice);
+        let content = self.archive.get(offset..offset + len)?;
+
+        Some(content)
     }
 }
