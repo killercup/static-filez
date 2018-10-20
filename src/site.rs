@@ -15,7 +15,8 @@ pub struct Site {
 }
 
 impl Site {
-    pub fn new(path: &Path) -> Result<Site, Error> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Site, Error> {
+        let path = path.as_ref();
         let index_path = path.with_extension("index");
         let archive_path = path.with_extension("archive");
 

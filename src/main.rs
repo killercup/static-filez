@@ -60,7 +60,7 @@ fn main() -> Result<(), ExitFailure> {
 }
 
 fn serve(path: &Path, port: &Port) -> Result<(), Error> {
-    let site = static_filez::Site::new(path)?;
+    let site = static_filez::Site::from_path(path)?;
 
     static_filez::serve(site, port)?;
 
