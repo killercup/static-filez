@@ -9,9 +9,9 @@ use mime_guess;
 use std::sync::Arc;
 use tokio;
 
-use site::read::Site;
+use Site;
 
-pub fn serve(site: Site<'static>, port: &Port) -> Result<(), Error> {
+pub fn serve(site: Site, port: &Port) -> Result<(), Error> {
     let site = Arc::new(site);
 
     let listener = port.bind()?;
@@ -24,10 +24,7 @@ pub fn serve(site: Site<'static>, port: &Port) -> Result<(), Error> {
         let site = site.clone();
         service_fn(move |req| {
             let path = &req.uri().path()[1..];
-            let page = site.pages.get(path).or_else(|| {
-                let key = format!("{}/index.html", path);
-                site.pages.get(key.as_str())
-            });
+            let page = site.get(path);
             if let Some(&page) = page {
                 Response::builder()
                     .status(StatusCode::OK)
