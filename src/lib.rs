@@ -1,4 +1,3 @@
-extern crate bincode;
 extern crate clap_port_flag;
 extern crate deflate;
 extern crate fst;

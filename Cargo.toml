@@ -6,17 +6,13 @@ authors = ["Pascal Hertleif <killercup@gmail.com>"]
 [dependencies]
 inflate = "0.4.3"
 deflate = { version = "0.7.19", features = ["gzip"] }
-bincode = "1.0.1"
 hyper = "0.12.11"
-serde_derive = "1.0.79"
 fst = "0.3.2"
 structopt = "0.2.12"
 quicli = "0.3.1"
 exitfailure = "0.5.1"
 clap-port-flag = "0.3.0"
 walkdir = "2.2.5"
-rmp-serde = "0.13.7"
-serde = "1.0.79"
 futures = "0.1.25"
 tokio = "0.1.11"
 mime_guess = "1.8.6"
