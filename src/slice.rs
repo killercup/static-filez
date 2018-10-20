@@ -1,7 +1,7 @@
-pub fn pack_in_u64(offset: usize, len: usize) -> u64 {
+pub fn pack_in_u64(offset: usize, length: usize) -> u64 {
     let mut res = 0_u64;
-    res |= offset << 32;
-    res |= length;
+    res |= (offset as u64) << 32;
+    res |= length as u64;
     res
 }
 

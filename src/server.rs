@@ -1,18 +1,18 @@
 use std::result::Result;
 
-use quicli::prelude::Error;
+use quicli::prelude::*;
 
 use clap_port_flag::Port;
 use futures::prelude::*;
 use hyper::{self, service::service_fn, Body, Response, Server, StatusCode};
 use mime_guess;
-use std::sync::Arc;
 use tokio;
 
 use Site;
 
 pub fn serve(site: Site, port: &Port) -> Result<(), Error> {
-    let site = Arc::new(site);
+    let site = Box::new(site);
+    let site: &'static Site = &*Box::leak(site);
 
     let listener = port.bind()?;
 
@@ -21,11 +21,10 @@ pub fn serve(site: Site, port: &Port) -> Result<(), Error> {
     let addr = listener.local_addr()?;
 
     let service = move || {
-        let site = site.clone();
         service_fn(move |req| {
             let path = &req.uri().path()[1..];
             let page = site.get(path);
-            if let Some(&page) = page {
+            if let Some(page) = page {
                 Response::builder()
                     .status(StatusCode::OK)
                     .header(hyper::header::CONTENT_ENCODING, "gzip")
