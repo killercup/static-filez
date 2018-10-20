@@ -1,16 +1,16 @@
 extern crate bincode;
 extern crate deflate;
-extern crate quicli;
 extern crate futures;
 extern crate hyper;
 extern crate mime_guess;
+extern crate quicli;
 #[macro_use]
 extern crate serde_derive;
+extern crate clap_port_flag;
+extern crate fst;
+extern crate memmap;
 extern crate tokio;
 extern crate walkdir;
-extern crate fst;
-extern crate clap_port_flag;
-extern crate memmap;
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -46,20 +46,23 @@ pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
     let mut archive_index = 0;
 
     WalkDir::new(src)
-        .sort_by(|a,b| a.strip_prefix(src).cmp(b.strip_prefix(src)))
+        .sort_by(|a, b| a.strip_prefix(src).cmp(b.strip_prefix(src)))
         .into_iter()
         .flat_map(|entry| entry.map_err(|e| warn!("Couldn't read dir entry {}", e)))
         .filter(|f| f.path().is_file())
         .flat_map(|file| -> Result<PathBuf, ()> {
             let path = file.path();
-            Ok(path.strip_prefix(src)
+            Ok(path
+                .strip_prefix(src)
                 .map_err(|e| warn!("Couldn't get relative path for `{:?}`: {}", file, e))?
                 .to_path_buf())
-        })
-        .try_fold(index, |mut map, path| {
+        }).try_fold(index, |mut map, path| {
             let file_content = get_compressed_content(&path)?;
             archive.write_all(&file_content);
-            map.insert(path.as_os_str().as_bytes(), slice::pack_in_u64(archive_index, file_content.len()));
+            map.insert(
+                path.as_os_str().as_bytes(),
+                slice::pack_in_u64(archive_index, file_content.len()),
+            );
             archive_index += file_content.len();
         });
 

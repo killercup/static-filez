@@ -1,14 +1,14 @@
-extern crate static_filez;
-extern crate quicli;
 extern crate clap_port_flag;
 extern crate exitfailure;
+extern crate quicli;
+extern crate static_filez;
 
 use std::path::PathBuf;
 use std::result::Result;
 
-use quicli::prelude::*;
 use clap_port_flag::Port;
 use exitfailure::ExitFailure;
+use quicli::prelude::*;
 use std::path::Path;
 
 /// Serve static files from a neat small binary
@@ -51,7 +51,9 @@ fn main() -> Result<(), ExitFailure> {
         Command::Build { input_dir, output } => {
             static_filez::build(&input_dir, &output).context("build failed")?
         }
-        Command::Serve { file, port } => serve(&file.with_extension(""), &port).context("server failed")?,
+        Command::Serve { file, port } => {
+            serve(&file.with_extension(""), &port).context("server failed")?
+        }
     }
 
     Ok(())
