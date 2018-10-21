@@ -1,26 +1,66 @@
+dist: trusty
 language: rust
-rust:
-- stable
-- beta
-- nightly
+services: docker
+sudo: required
+
+env:
+  global:
+  - CRATE_NAME=static-filez
+  - BIN_NAME=static-filez
+
+before_install:
+- set -e
+- rustup self update
+
+install:
+- sh ci/install.sh
+- source ~/.cargo/env || true
+
+script:
+- bash ci/script.sh
+
+after_script: set +e
+
+before_deploy:
+- sh ci/before_deploy.sh
 
 matrix:
   include:
-  - rust: 1.29.1
+  - rust: 1.29.2
     env: CLIPPY=YESPLEASE
     before_script: rustup component add clippy-preview
-    script: cargo clippy --all-targets -- -D warnings
-  - rust: 1.29.1
+    script: cargo clippy --all -- -D warnings
+  - rust: 1.29.2
     env: RUSTFMT=YESPLEASE
     before_script: rustup component add rustfmt-preview
     script: cargo fmt --all -- --check
+
+  # dist targets from https://github.com/japaric/trust
+  - env: TARGET=x86_64-unknown-linux-gnu
+  - env: TARGET=x86_64-unknown-linux-musl
+  - env: TARGET=x86_64-apple-darwin
+    os: osx
+
+deploy:
+  api_key:
+    secure: "u0a8Ld+DjOOjiHGkqLAw1eDFnwMDc4PKNi7kuGRArfK4XM+edFP4d3G3Li7DSrGR/6Vm7d95OVHbQnBOdhN2YAZlvpXG4moU/N5/U28T0LfFukVEjDPlrQZlz7B9c9URu/dgI4s9u5RNaOeqpMTaK7RpDzHQjXK7p2RYTqmJ8TOeYi812q9k0+Y0SClWXT5sx08x/wPQT+QcCSh0nqvFYyssJ203/dr4IgVEzftvpggq7UcFR3A0YGoXpLn1rSm0johrSt/A7QOELbnoxR+bNKbFapQETyfnEuhltfv2jNe+VV0oHeeu7nPJMdG5Kw+rTbJgFHCiJTFsZWRPFrAq/rxnV/dzLQrQrPR1PTd2iEhUtQJPc3AT48xWH8ziQ5clNeN9Gx/CFao94emVBmQE6Ba0hyP77EXdtio0nIgBvd4yNXXtEOtzgEG2zEUAInVlAvxe1JKcMgGLIDuQYw7CTe0/bF/1F7UmG4qfSfDsBDGNjLwCOPlr7Np4DwqNMZRdxvFIwEsPkIy0B/7Xi4RvQoLTbwHllKJW8KCNji8FFFfY+TYzwe14PcwodpYC+LGNZK4PcwzYpPtX2PuXDWJdZHQlvedwAzktzmQ8Pkz+2wrV/EsGs5WENGWEpikaDFceZp1QgP2Nv+zFVCf2ddBv2ETuy+yRoR2A6LGrfwMNz0w="
+  file_glob: true
+  file: "$CRATE_NAME-$TRAVIS_TAG-$TARGET.*"
+  on:
+    condition: '"$TARGET" != ""'
+    tags: true
+  provider: releases
+  skip_cleanup: true
 
 branches:
   except:
   - staging.tmp
 
-cache: cargo
-
 notifications:
   email:
     on_success: never
+
+cache: cargo
+before_cache:
+# Travis can't cache files that are not readable by "others"
+- chmod -R a+r $HOME/.cargo
