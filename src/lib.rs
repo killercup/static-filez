@@ -26,7 +26,7 @@ mod server;
 
 mod site;
 pub use site::Site;
-use walkdir::DirEntry;
+use std::path::PathBuf;
 
 pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
     info!(
@@ -76,15 +76,10 @@ pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
     info!("found {} files", files.len());
 
     // fst map requires keys to be inserted in lexicographic order _represented as bytes_
-    fn rel_as_bytes(p: &DirEntry, src: &Path) -> Vec<u8> {
-        p.path()
-            .strip_prefix(src)
-            .unwrap()
-            .to_string_lossy()
-            .to_string()
-            .into_bytes()
+    fn rel_as_bytes(path: &Path) -> Vec<u8> {
+        path.to_string_lossy().to_string().into_bytes()
     }
-    files.sort_by(move |a, b| rel_as_bytes(a, src).cmp(&rel_as_bytes(b, src)));
+    files.par_sort_by(move |a, b| rel_as_bytes(a.path()).cmp(&rel_as_bytes(b.path())));
     info!("sorted {} files", files.len());
 
     info!(
@@ -92,10 +87,31 @@ pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
         archive_path.display(),
         index_path.display()
     );
-    for file in &files {
-        let path = file.path();
-        let file_content = get_compressed_content(&path)
-            .with_context(|_| format!("Could not read/compress content of {}", path.display()))?;
+
+    let files = files
+        .chunks(2 << 6)
+        .flat_map(|chunk| -> Result<Vec<(PathBuf, Vec<u8>)>, ()> {
+            let files: Result<Vec<(PathBuf, Vec<u8>)>, Error> = chunk
+                .par_iter()
+                .map(|entry| -> Result<(PathBuf, Vec<u8>), Error> {
+                    let path = entry.path();
+                    let file_content = get_compressed_content(&path).with_context(|_| {
+                        format!("Could not read/compress content of {}", path.display())
+                    })?;
+                    let rel_path = path
+                        .strip_prefix(src)
+                        .with_context(|_| {
+                            format!("Couldn't get relative path for `{:?}`", path.display())
+                        })?.to_path_buf();
+                    Ok((rel_path, file_content))
+                }).collect();
+            let mut files = files.map_err(|e| warn!("{}", e))?;
+
+            files.par_sort_by(move |a, b| rel_as_bytes(&a.0).cmp(&rel_as_bytes(&b.0)));
+            Ok(files)
+        }).flat_map(|xs| xs);
+
+    for (rel_path, file_content) in files {
         archive.write_all(&file_content).with_context(|_| {
             format!(
                 "Could not write compressed content to {}",
@@ -103,17 +119,11 @@ pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
             )
         })?;
 
-        let rel_path = file
-            .path()
-            .strip_prefix(src)
-            .with_context(|_| format!("Couldn't get relative path for `{:?}`", path.display()))?
-            .to_path_buf();
-
         index
             .insert(
                 rel_path.to_string_lossy().as_bytes(),
                 slice::pack_in_u64(archive_index, file_content.len()),
-            ).with_context(|_| format!("Could not insert file {} into index", path.display()))?;
+            ).with_context(|_| format!("Could not insert file {} into index", rel_path.display()))?;
         archive_index += file_content.len();
     }
     info!("wrote all files");
