@@ -3,6 +3,9 @@
 > **Build compressed archives for static files and serve them over HTTP**
 
 [![Build Status](https://travis-ci.com/killercup/static-filez.svg?branch=master)](https://travis-ci.com/killercup/static-filez)
+[![crates.io](https://img.shields.io/crates/v/static-filez.svg)](https://crates.io/crates/static-filez)
+[![docs](https://img.shields.io/badge/api_docs-latest-blue.svg)](https://docs.rs/static-filez)
+
 
 ## What and Why
 
@@ -25,7 +28,25 @@ _static-filez_ is a prototype for that piece of software.
 
 ## Installation
 
-For now, `cargo install --git https://github.com/killercup/static-filez`.
+## Download  a binary
+
+There are pre-compiled binaries that you can find on the [releases page](https://github.com/killercup/static-filez/releases).
+
+Alternatively, install it like this:
+
+```bash
+curl -LSfs https://japaric.github.io/trust/install.sh | sh -s -- --git killercup/static-filez
+```
+
+### Compile manually
+
+Make sure you have Rust and Cargo installed.
+Then, run
+`cargo install --git https://github.com/killercup/static-filez`.
+
+Alternatively,
+clone this repository and run
+`cargo install --path .`.
 
 ## Usage
 
