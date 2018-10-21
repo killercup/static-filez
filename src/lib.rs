@@ -89,7 +89,7 @@ pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
     );
 
     let files = files
-        .chunks(2 << 6)
+        .chunks(2 << 8)
         .flat_map(|chunk| -> Result<Vec<(PathBuf, Vec<u8>)>, ()> {
             let files: Result<Vec<(PathBuf, Vec<u8>)>, Error> = chunk
                 .par_iter()
