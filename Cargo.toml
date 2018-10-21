@@ -2,6 +2,10 @@
 name = "static-filez"
 version = "0.1.0"
 authors = ["Pascal Hertleif <killercup@gmail.com>"]
+description = "Build compressed archives for static files and serve them over HTTP"
+license = "Apache-2.0 OR MIT"
+readme = "README.md"
+repository = "https://github.com/killercup/static-filez"
 
 [dependencies]
 inflate = "0.4.3"
