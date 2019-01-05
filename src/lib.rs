@@ -29,10 +29,7 @@ pub use site::Site;
 use std::path::PathBuf;
 
 pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
-    info!(
-        "trying to build an index and archive from `{}`",
-        src.display()
-    );
+    info!("trying to build an index and archive from `{}`", src.display());
     let src = src
         .canonicalize()
         .with_context(|_| format!("Cannot canonicalize path `{}`", src.display()))?;
@@ -102,35 +99,36 @@ pub fn build(src: &Path, target: &Path) -> Result<(), Error> {
                         .strip_prefix(src)
                         .with_context(|_| {
                             format!("Couldn't get relative path for `{:?}`", path.display())
-                        })?.to_path_buf();
+                        })?
+                        .to_path_buf();
                     Ok((rel_path, file_content))
-                }).collect();
+                })
+                .collect();
             let mut files = files.map_err(|e| warn!("{}", e))?;
 
             files.par_sort_by(move |a, b| rel_as_bytes(&a.0).cmp(&rel_as_bytes(&b.0)));
             Ok(files)
-        }).flat_map(|xs| xs);
+        })
+        .flat_map(|xs| xs);
 
     for (rel_path, file_content) in files {
         archive.write_all(&file_content).with_context(|_| {
-            format!(
-                "Could not write compressed content to {}",
-                archive_path.display()
-            )
+            format!("Could not write compressed content to {}", archive_path.display())
         })?;
 
         index
             .insert(
                 rel_path.to_string_lossy().as_bytes(),
                 slice::pack_in_u64(archive_index, file_content.len()),
-            ).with_context(|_| format!("Could not insert file {} into index", rel_path.display()))?;
+            )
+            .with_context(|_| format!("Could not insert file {} into index", rel_path.display()))?;
         archive_index += file_content.len();
+
+        trace!("{:b}", archive_index);
     }
     info!("wrote all files");
 
-    index
-        .finish()
-        .with_context(|e| format!("Could not finish building index: {}", e))?;
+    index.finish().with_context(|e| format!("Could not finish building index: {}", e))?;
     info!("finished index");
 
     Ok(())

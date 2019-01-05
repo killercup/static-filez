@@ -28,18 +28,10 @@ impl Site {
         })?;
 
         let archive_file = File::open(&archive_path).with_context(|e| {
-            format!(
-                "Could not read archive file {}: {}",
-                archive_path.display(),
-                e
-            )
+            format!("Could not read archive file {}: {}", archive_path.display(), e)
         })?;
         let archive = unsafe { Mmap::map(&archive_file) }.with_context(|e| {
-            format!(
-                "Could not open archive file {}: {}",
-                archive_path.display(),
-                e
-            )
+            format!("Could not open archive file {}: {}", archive_path.display(), e)
         })?;
 
         Ok(Site { index, archive })

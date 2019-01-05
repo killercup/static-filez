@@ -35,12 +35,11 @@ pub fn serve(site: Site, port: &Port) -> Result<(), Error> {
                         mime_guess::guess_mime_type_opt(path)
                             .map(|m| m.to_string())
                             .unwrap_or_else(|| "text/html".to_string()),
-                    ).body(Body::from(page))
+                    )
+                    .body(Body::from(page))
             } else {
                 debug!("[404] {} {}", req.method(), req.uri());
-                Response::builder()
-                    .status(StatusCode::NOT_FOUND)
-                    .body(Body::from("Not found"))
+                Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Not found"))
             }
         })
     };
