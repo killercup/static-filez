@@ -13,7 +13,7 @@ deflate = { version = "0.7.19", features = ["gzip"] }
 hyper = "0.12.11"
 fst = "0.3.2"
 structopt = "0.2.12"
-quicli = "0.3.1"
+quicli = "0.4.0"
 exitfailure = "0.5.1"
 clap-port-flag = "0.3.0"
 walkdir = "2.2.5"
@@ -24,6 +24,9 @@ memmap = "0.7"
 
 [dev-dependencies]
 proptest = "0.8"
+tempfile = "3"
+escargot = "0.4"
+reqwest = "0.9"
 
 [workspace]
 #members = [

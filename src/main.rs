@@ -2,6 +2,7 @@ extern crate clap_port_flag;
 extern crate exitfailure;
 extern crate quicli;
 extern crate static_filez;
+extern crate structopt;
 
 use std::path::PathBuf;
 use std::result::Result;
@@ -10,6 +11,7 @@ use clap_port_flag::Port;
 use exitfailure::ExitFailure;
 use quicli::prelude::*;
 use std::path::Path;
+use structopt::StructOpt;
 
 /// Package static files into a compressed archive and directly serve them over HTTP
 #[derive(StructOpt)]
